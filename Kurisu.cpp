@@ -1,18 +1,17 @@
-#include "Plotter.h"
+#include "Kurisu.h"
 
-#define _2D 2
+#define _2D 2 // yep, Kurisu is 2D
 
 
-Plotter::Plotter () {
+int Kurisu::createWindow (int w, int h) {
 	SDL_Init (SDL_INIT_VIDEO);
 	SDL_GL_SetAttribute (SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 	SDL_GL_SetAttribute (SDL_GL_CONTEXT_MINOR_VERSION, 1);
 	SDL_GL_SetAttribute (SDL_GL_DOUBLEBUFFER, 1);
-	window = SDL_CreateWindow ("Plotter",
-	                           SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-	                           SCR_W, SCR_H,
+	window = SDL_CreateWindow ("Kurisu grapher",
+	                           SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h,
 	                           SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
-	SDL_GL_CreateContext (window);
+	glContext = SDL_GL_CreateContext (window);
 	SDL_GL_SetSwapInterval (1); // vsync
 
 	glMatrixMode (GL_PROJECTION);
@@ -23,16 +22,19 @@ Plotter::Plotter () {
 }
 
 
-Plotter::~Plotter () {
-	SDL_DestroyWindow (window);
-	SDL_Quit ();
+Kurisu::~Kurisu () {
+	if (window) {
+		SDL_GL_DeleteContext (glContext);
+		SDL_DestroyWindow (window);
+		SDL_Quit ();
+	}
 }
 
 
-void Plotter::set (Pane pane, const std::vector<point2d> &vertex_in, const std::vector<edge2d> &edges_in) {
-	std::vector<point2d> &vertex_out = (pane == Pane::Left) ? LVertex : RVertex;
-	const point2d &paneCenter = (pane == Pane::Left) ? LPane_center : RPane_center;
-	std::vector<float> &edges_out = (pane == Pane::Left) ? LEdgesPlain : REdgesPlain;
+void Kurisu::set (pane_id pane, const std::vector<Vertex> &vertex_in, const std::vector<Edge> &edges_in) {
+	std::vector<Vertex> &vertex_out = (pane == pane_id::Left) ? LVertex : RVertex;
+	const Vertex &paneCenter = (pane == pane_id::Left) ? LPane_center : RPane_center;
+	std::vector<float> &edges_out = (pane == pane_id::Left) ? LEdgesPlain : REdgesPlain;
 
 	// Copy vertex
 	vertex_out.clear ();
@@ -50,7 +52,7 @@ void Plotter::set (Pane pane, const std::vector<point2d> &vertex_in, const std::
 }
 
 
-bool Plotter::update () {
+bool Kurisu::update () {
 	SDL_Event event;
 	bool running = true;
 	while (SDL_PollEvent (&event))
@@ -60,7 +62,7 @@ bool Plotter::update () {
 }
 
 
-void Plotter::render () {
+void Kurisu::render () {
 	renderSetup ();
 	drawEdges ();
 	drawVertex ();
@@ -69,7 +71,7 @@ void Plotter::render () {
 }
 
 
-void Plotter::renderSetup () {
+void Kurisu::renderSetup () {
 	glClear (GL_COLOR_BUFFER_BIT);
 	glMatrixMode (GL_PROJECTION);
 	glLoadIdentity ();
@@ -78,7 +80,7 @@ void Plotter::renderSetup () {
 }
 
 
-void Plotter::drawAxes () {
+void Kurisu::drawAxes () {
 	glColor3fv (clAxis);
 
 	// Draw separator
@@ -125,7 +127,7 @@ void Plotter::drawAxes () {
 }
 
 
-void Plotter::drawVertex () {
+void Kurisu::drawVertex () {
 	GLfloat dot_curr[8] = {0};
 	glVertexPointer (_2D, GL_FLOAT, 0, dot_curr);
 	// Left pane dots
@@ -143,7 +145,7 @@ void Plotter::drawVertex () {
 }
 
 
-void Plotter::drawEdges () {
+void Kurisu::drawEdges () {
 	glLineWidth (edgeLineWidth);
 	// Left pane edges
 	glVertexPointer (_2D, GL_FLOAT, 0, &LEdgesPlain[0]);
@@ -156,14 +158,14 @@ void Plotter::drawEdges () {
 }
 
 
-void Plotter::renderFinish () {
+void Kurisu::renderFinish () {
 	glDisableClientState (GL_VERTEX_ARRAY);
 	glFlush ();
 	SDL_GL_SwapWindow (window);
 }
 
 
-void Plotter::moveVertexArray (const float *in, float *out, int count, float dx, float dy) {
+void Kurisu::moveVertexArray (const float *in, float *out, int count, float dx, float dy) {
 	for (int i = 0; i < count; i++) {
 		out[i * _2D + 0] = in[i * _2D + 0] + dx;
 		out[i * _2D + 1] = in[i * _2D + 1] + dy;

@@ -6,22 +6,20 @@
 #include <utility>
 
 
-#define SCR_W 1000
-#define SCR_H 500
+class Kurisu {
+public:
+	typedef struct {
+		float x, y;
+	} Vertex;
+	typedef std::pair<Vertex, Vertex> Edge;
 
-
-typedef struct {
-	float x, y;
-} point2d;
-
-
-typedef std::pair<point2d, point2d> edge2d;
-
-
-class Plotter {
-
+private:
 	SDL_Window *window;
-	std::vector<point2d> LVertex, RVertex;
+	SDL_GLContext glContext;
+
+	class Pane;
+
+	std::vector<Vertex> LVertex, RVertex;
 	std::vector<float> LEdgesPlain, REdgesPlain;
 
 	void renderSetup ();
@@ -34,7 +32,7 @@ class Plotter {
 	// General
 	const GLfloat scale            = 0.2;
 	const GLfloat invsc            = 1 / scale;
-	const point2d LPane_center     = {-invsc,  0},
+	const Vertex LPane_center     = {-invsc,  0},
 	              RPane_center     = { invsc,  0};
 	const GLfloat separatorLine[4] = { 0, -invsc,  0,  invsc};
 	const GLfloat axis[8]          = {-invsc, 0,  invsc, 0,  // x
@@ -67,14 +65,19 @@ class Plotter {
 	void moveVertexArray (const float *in, float *out, int count, float dx, float dy);
 
 public:
-	enum class Pane {
+	enum class pane_id {
 		Left, Right
 	};
 
-	Plotter ();
-	~Plotter ();
+	int createWindow (int w, int h);
+	~Kurisu ();
 
-	void set (Pane pane, const std::vector<point2d> &vertex_in, const std::vector<edge2d> &edges_in);
+	void set (pane_id pane, const std::vector<Vertex> &vertex_in, const std::vector<Edge> &edges_in);
 	bool update ();
 	void render ();
+};
+
+
+class Kurisu::Pane {
+
 };

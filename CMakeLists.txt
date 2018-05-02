@@ -10,8 +10,8 @@ set(SDL2_PATH SDL2)
 find_package(SDL2 REQUIRED)
 find_package(OpenGL REQUIRED)
 
-set(SOURCE_FILES example.cpp Plotter.cpp)
-set(HEADER_FILES Plotter.h)
+set(SOURCE_FILES example.cpp Kurisu.cpp)
+set(HEADER_FILES Kurisu.h)
 
 include_directories(
         ${INCLUDE_DIR}

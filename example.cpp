@@ -1,30 +1,30 @@
-#include "Plotter.h"
+#include "Kurisu.h"
 
-point2d A = {-0.6f, 0.8};
-point2d B = {-0.4f, -0.5f};
-point2d C = {0.5, -0.9f};
-point2d D = {0.7, 0.6};
+Kurisu::Vertex A = {-0.6f, 0.8};
+Kurisu::Vertex B = {-0.4f, -0.5f};
+Kurisu::Vertex C = {0.5, -0.9f};
+Kurisu::Vertex D = {0.7, 0.6};
 
-edge2d AB = {A, B};
-edge2d AC = {A, C};
-edge2d AD = {A, D};
-edge2d BC = {B, C};
-edge2d BD = {B, D};
-edge2d CD = {C, D};
+Kurisu::Edge AB = {A, B};
+Kurisu::Edge AC = {A, C};
+Kurisu::Edge AD = {A, D};
+Kurisu::Edge BC = {B, C};
+Kurisu::Edge BD = {B, D};
+Kurisu::Edge CD = {C, D};
 
-std::vector<point2d> vertex = {A, B, C, D};
-std::vector<edge2d> solution1 = {AB, BC, CD, AD};
-std::vector<edge2d> solution2 = {AC, BC, BD, AD};
+std::vector<Kurisu::Vertex> vertex = {A, B, C, D};
+std::vector<Kurisu::Edge> solution1 = {AB, BC, CD, AD};
+std::vector<Kurisu::Edge> solution2 = {AC, BC, BD, AD};
 
 
 int main (int, char**) {
-	Plotter *plot = new Plotter ();
+	Kurisu graph;
+	graph.createWindow (1000, 500);
 
-	plot->set (Plotter::Pane::Left, vertex, solution1);
-	plot->set (Plotter::Pane::Right, vertex, solution2);
-	while (plot->update ())
-		plot->render ();
+	graph.set (Kurisu::pane_id::Left, vertex, solution1);
+	graph.set (Kurisu::pane_id::Right, vertex, solution2);
+	while (graph.update ())
+		graph.render ();
 
-	delete plot;
 	return 0;
 }
