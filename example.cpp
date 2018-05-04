@@ -17,12 +17,14 @@ std::vector<Kurisu::Edge> solution1 = {AB, BC, CD, AD};
 std::vector<Kurisu::Edge> solution2 = {AC, BC, BD, AD};
 
 
-int main (int, char**) {
+int main (int, char **) {
 	Kurisu graph;
 	graph.createWindow (1000, 500);
+	Kurisu::Pane LPane = graph.addPane ({-5, 0}, 1, 1, 1);
+	Kurisu::Pane RPane = graph.addPane ({5, 0}, 1, 1, 1);
 
-	graph.set (Kurisu::pane_id::Left, vertex, solution1);
-	graph.set (Kurisu::pane_id::Right, vertex, solution2);
+	graph[LPane].setGraph (vertex, solution1);
+	graph[RPane].setGraph (vertex, solution2);
 	while (graph.update ())
 		graph.render ();
 

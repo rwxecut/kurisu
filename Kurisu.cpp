@@ -31,24 +31,10 @@ Kurisu::~Kurisu () {
 }
 
 
-void Kurisu::set (pane_id pane, const std::vector<Vertex> &vertex_in, const std::vector<Edge> &edges_in) {
-	std::vector<Vertex> &vertex_out = (pane == pane_id::Left) ? LVertex : RVertex;
-	const Vertex &paneCenter = (pane == pane_id::Left) ? LPane_center : RPane_center;
-	std::vector<float> &edges_out = (pane == pane_id::Left) ? LEdgesPlain : REdgesPlain;
-
-	// Copy vertex
-	vertex_out.clear ();
-	vertex_out = vertex_in;
-
-	// Transform edges
-	edges_out.clear ();
-	edges_out.reserve (edges_in.size () * 4);
-	for (auto edge : edges_in) {
-		edges_out.push_back (edge.first.x + paneCenter.x);
-		edges_out.push_back (edge.first.y + paneCenter.y);
-		edges_out.push_back (edge.second.x + paneCenter.x);
-		edges_out.push_back (edge.second.y + paneCenter.y);
-	}
+Kurisu::Pane
+Kurisu::addPane (Kurisu::Vertex center, GLfloat axesLineWidth, GLfloat notchLineWidth, GLfloat edgesLineWidth) {
+	pane_objs.emplace_back (center, axesLineWidth, notchLineWidth, edgesLineWidth);
+	return pane_objs.size () - 1;
 }
 
 
@@ -64,9 +50,7 @@ bool Kurisu::update () {
 
 void Kurisu::render () {
 	renderSetup ();
-	drawEdges ();
-	drawVertex ();
-	drawAxes ();
+	for (Pane_obj pane : pane_objs) pane.render ();
 	renderFinish ();
 }
 
@@ -75,86 +59,8 @@ void Kurisu::renderSetup () {
 	glClear (GL_COLOR_BUFFER_BIT);
 	glMatrixMode (GL_PROJECTION);
 	glLoadIdentity ();
-	glScalef (scale / 2, scale, 1);
+	glScalef (Pane_obj::scale / 2, Pane_obj::scale, 1);
 	glEnableClientState (GL_VERTEX_ARRAY);
-}
-
-
-void Kurisu::drawAxes () {
-	glColor3fv (clAxis);
-
-	// Draw separator
-	glLineWidth (separatorLineWidth);
-	glVertexPointer (_2D, GL_FLOAT, 0, separatorLine);
-	glDrawArrays (GL_LINES, 0, 2);
-
-	// Draw axis
-	glLineWidth (axisLineWidth);
-	GLfloat L_axis[8] = {0}, R_axis[8] = {0};
-	moveVertexArray (axis, L_axis, 4, LPane_center.x, LPane_center.y);
-	moveVertexArray (axis, R_axis, 4, RPane_center.x, RPane_center.y);
-	glVertexPointer (_2D, GL_FLOAT, 0, L_axis);
-	glDrawArrays (GL_LINES, 0, 4);
-	glVertexPointer (_2D, GL_FLOAT, 0, R_axis);
-	glDrawArrays (GL_LINES, 0, 4);
-
-	// Draw notches
-	glLineWidth (notchLineWidth);
-	GLfloat H_notch_curr[4] = {0};
-	GLfloat V_notch_curr[4] = {0};
-	glVertexPointer (_2D, GL_FLOAT, 0, V_notch_curr);
-	// L pane X
-	for (int i = -notchCountHalf; i <= notchCountHalf; i++) {
-		moveVertexArray (V_notch, V_notch_curr, 2, i * notchInterval + LPane_center.x, LPane_center.y);
-		glDrawArrays (GL_LINES, 0, 2);
-	}
-	// R pane X
-	for (int i = -notchCountHalf; i <= notchCountHalf; i++) {
-		moveVertexArray (V_notch, V_notch_curr, 2, i * notchInterval + RPane_center.x, RPane_center.y);
-		glDrawArrays (GL_LINES, 0, 2);
-	}
-	// L pane Y
-	glVertexPointer (_2D, GL_FLOAT, 0, H_notch_curr);
-	for (int i = -notchCountHalf; i <= notchCountHalf; i++) {
-		moveVertexArray (H_notch, H_notch_curr, 2, LPane_center.x, i * notchInterval + LPane_center.y);
-		glDrawArrays (GL_LINES, 0, 2);
-	}
-	// R pane Y
-	for (int i = -notchCountHalf; i <= notchCountHalf; i++) {
-		moveVertexArray (H_notch, H_notch_curr, 2, RPane_center.x, i * notchInterval + RPane_center.y);
-		glDrawArrays (GL_LINES, 0, 2);
-	}
-}
-
-
-void Kurisu::drawVertex () {
-	GLfloat dot_curr[8] = {0};
-	glVertexPointer (_2D, GL_FLOAT, 0, dot_curr);
-	// Left pane dots
-	glColor3fv (clLVertex);
-	for (auto point : LVertex) {
-		moveVertexArray (dot, dot_curr, 4, point.x + LPane_center.x, point.y + LPane_center.y);
-		glDrawArrays (GL_POLYGON, 0, 4);
-	}
-	// Right pane dots
-	glColor3fv (clRVertex);
-	for (auto point : RVertex) {
-		moveVertexArray (dot, dot_curr, 4, point.x + RPane_center.x, point.y + RPane_center.y);
-		glDrawArrays (GL_POLYGON, 0, 4);
-	}
-}
-
-
-void Kurisu::drawEdges () {
-	glLineWidth (edgeLineWidth);
-	// Left pane edges
-	glVertexPointer (_2D, GL_FLOAT, 0, &LEdgesPlain[0]);
-	glColor3fv (clLEdges);
-	glDrawArrays (GL_LINES, 0, LEdgesPlain.size () / 2);
-	// Right pane edges
-	glVertexPointer (_2D, GL_FLOAT, 0, &REdgesPlain[0]);
-	glColor3fv (clREdges);
-	glDrawArrays (GL_LINES, 0, REdgesPlain.size () / 2);
 }
 
 
@@ -169,5 +75,85 @@ void Kurisu::moveVertexArray (const float *in, float *out, int count, float dx, 
 	for (int i = 0; i < count; i++) {
 		out[i * _2D + 0] = in[i * _2D + 0] + dx;
 		out[i * _2D + 1] = in[i * _2D + 1] + dy;
+	}
+}
+
+
+Kurisu::Pane_obj::Pane_obj (Vertex center, GLfloat axesLineWidth, GLfloat notchLineWidth, GLfloat edgesLineWidth) {
+	this->center = center;
+	this->axesLineWidth = axesLineWidth;
+	this->notchLineWidth = notchLineWidth;
+	this->edgesLineWidth = edgesLineWidth;
+}
+
+
+void Kurisu::Pane_obj::render () {
+	drawAxes ();
+	drawEdges ();
+	drawVerticies ();
+}
+
+
+void Kurisu::Pane_obj::drawAxes () {
+	glColor3fv (clAxis);
+	// Draw axes lines
+	glLineWidth (axesLineWidth);
+	GLfloat p_axis[8] = {0};
+	Kurisu::moveVertexArray (axis, p_axis, 4, center.x, center.y);
+	glVertexPointer (_2D, GL_FLOAT, 0, p_axis);
+	glDrawArrays (GL_LINES, 0, 4);
+	// Draw notches
+	glLineWidth (notchLineWidth);
+	GLfloat p_notch_curr[4] = {0};
+	glVertexPointer (_2D, GL_FLOAT, 0, p_notch_curr);
+	// X notches
+	for (int i = -notchCountHalf; i <= notchCountHalf; i++) {
+		moveVertexArray (V_notch, p_notch_curr, 2, i * notchInterval + center.x, center.y);
+		glDrawArrays (GL_LINES, 0, 2);
+	}
+	// Y notches
+	glVertexPointer (_2D, GL_FLOAT, 0, p_notch_curr);
+	for (int i = -notchCountHalf; i <= notchCountHalf; i++) {
+		moveVertexArray (H_notch, p_notch_curr, 2, center.x, i * notchInterval + center.y);
+		glDrawArrays (GL_LINES, 0, 2);
+	}
+}
+
+
+void Kurisu::Pane_obj::drawEdges () {
+	glLineWidth (edgesLineWidth);
+	glVertexPointer (_2D, GL_FLOAT, 0, &edges[0]);
+	glColor3fv (clLEdges);
+	glDrawArrays (GL_LINES, 0, edges.size () / 2);
+}
+
+
+void Kurisu::Pane_obj::drawVerticies () {
+	GLfloat dot_curr[8] = {0};
+	glVertexPointer (_2D, GL_FLOAT, 0, dot_curr);
+	glColor3fv (clLVertex);
+	for (Vertex point : vertices) {
+		moveVertexArray (dot, dot_curr, 4, point.x, point.y);
+		glDrawArrays (GL_POLYGON, 0, 4);
+	}
+}
+
+
+void Kurisu::Pane_obj::setGraph (const std::vector<Vertex> &vertices_in, const std::vector<Edge> &edges_in) {
+	// Transform vertices
+	vertices.clear ();
+	vertices.reserve (vertices_in.size ());
+	for (Vertex vertex : vertices_in) {
+		vertices.push_back ({vertex.x + center.x, vertex.y + center.y});
+	}
+
+	// Transform edges
+	edges.clear ();
+	edges.reserve (edges_in.size () * 4);
+	for (Edge edge : edges_in) {
+		edges.push_back (edge.first.x + center.x);
+		edges.push_back (edge.first.y + center.y);
+		edges.push_back (edge.second.x + center.x);
+		edges.push_back (edge.second.y + center.y);
 	}
 }
