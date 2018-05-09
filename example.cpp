@@ -20,11 +20,17 @@ std::vector<Kurisu::Edge> solution2 = {AC, BC, BD, AD};
 int main (int, char **) {
 	Kurisu graph;
 	graph.createWindow (1000, 500);
-	Kurisu::Pane LPane = graph.addPane ({-5, 0}, 1, 1, 1);
-	Kurisu::Pane RPane = graph.addPane ({5, 0}, 1, 1, 1);
+	Kurisu::Pane LPane = graph.addPane ({-0.5, 0}, 1);
+	Kurisu::Pane RPane = graph.addPane ({0.5, 0}, 0.2);
+
+	graph[RPane].setGraph (vertex, solution2);
+	graph[RPane].setNotchSize (KURISU_NOTCH_SIZE_DEFAULT / 2);
 
 	graph[LPane].setGraph (vertex, solution1);
-	graph[RPane].setGraph (vertex, solution2);
+	graph[LPane].setNotchSize (KURISU_NOTCH_SIZE_DEFAULT / 4);
+	graph[LPane].setNotchInterval (KURISU_NOTCH_INTERVAL_DEFAULT / 2);
+	graph[LPane].setDotSize (KURISU_DOT_SIZE_DEFAULT / 2);
+
 	while (graph.update ())
 		graph.render ();
 

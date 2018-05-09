@@ -9,8 +9,8 @@ int Kurisu::createWindow (int w, int h) {
 	SDL_GL_SetAttribute (SDL_GL_CONTEXT_MINOR_VERSION, 1);
 	SDL_GL_SetAttribute (SDL_GL_DOUBLEBUFFER, 1);
 	window = SDL_CreateWindow ("Kurisu grapher",
-	                           SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h,
-	                           SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+	                           SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, w, h,
+	                           SDL_WINDOW_OPENGL);
 	glContext = SDL_GL_CreateContext (window);
 	SDL_GL_SetSwapInterval (1); // vsync
 
@@ -31,9 +31,8 @@ Kurisu::~Kurisu () {
 }
 
 
-Kurisu::Pane
-Kurisu::addPane (Kurisu::Vertex center, GLfloat axesLineWidth, GLfloat notchLineWidth, GLfloat edgesLineWidth) {
-	pane_objs.emplace_back (center, axesLineWidth, notchLineWidth, edgesLineWidth);
+Kurisu::Pane Kurisu::addPane (Vertex center, GLfloat scale) {
+	pane_objs.emplace_back (this, center, scale);
 	return pane_objs.size () - 1;
 }
 
@@ -49,22 +48,9 @@ bool Kurisu::update () {
 
 
 void Kurisu::render () {
-	renderSetup ();
-	for (Pane_obj pane : pane_objs) pane.render ();
-	renderFinish ();
-}
-
-
-void Kurisu::renderSetup () {
 	glClear (GL_COLOR_BUFFER_BIT);
-	glMatrixMode (GL_PROJECTION);
-	glLoadIdentity ();
-	glScalef (Pane_obj::scale / 2, Pane_obj::scale, 1);
 	glEnableClientState (GL_VERTEX_ARRAY);
-}
-
-
-void Kurisu::renderFinish () {
+	for (Pane_obj pane : pane_objs) pane.render ();
 	glDisableClientState (GL_VERTEX_ARRAY);
 	glFlush ();
 	SDL_GL_SwapWindow (window);
@@ -79,15 +65,27 @@ void Kurisu::moveVertexArray (const float *in, float *out, int count, float dx, 
 }
 
 
-Kurisu::Pane_obj::Pane_obj (Vertex center, GLfloat axesLineWidth, GLfloat notchLineWidth, GLfloat edgesLineWidth) {
+void Kurisu::mulVertexArray (const float *in, float *out, int count, float mx, float my) {
+	for (int i = 0; i < count; i++) {
+		out[i * _2D + 0] = in[i * _2D + 0] * mx;
+		out[i * _2D + 1] = in[i * _2D + 1] * my;
+	}
+}
+
+
+Kurisu::Pane_obj::Pane_obj (Kurisu *mother, Vertex center, GLfloat scale) {
+	this->mother = mother;
 	this->center = center;
-	this->axesLineWidth = axesLineWidth;
-	this->notchLineWidth = notchLineWidth;
-	this->edgesLineWidth = edgesLineWidth;
+	int winW, winH;
+	SDL_GetWindowSize (mother->window, &winW, &winH);
+	this->scale.x = scale * winH / winW;
+	this->scale.y = scale;
 }
 
 
 void Kurisu::Pane_obj::render () {
+	glMatrixMode (GL_PROJECTION);
+	glLoadIdentity ();
 	drawAxes ();
 	drawEdges ();
 	drawVerticies ();
@@ -97,63 +95,87 @@ void Kurisu::Pane_obj::render () {
 void Kurisu::Pane_obj::drawAxes () {
 	glColor3fv (clAxis);
 	// Draw axes lines
-	glLineWidth (axesLineWidth);
-	GLfloat p_axis[8] = {0};
-	Kurisu::moveVertexArray (axis, p_axis, 4, center.x, center.y);
-	glVertexPointer (_2D, GL_FLOAT, 0, p_axis);
+	glLineWidth (axisLineThickness);
+	GLfloat p_axes[8] = {0};
+	mulVertexArray (axes, p_axes, 4, scale.x, scale.y);
+	moveVertexArray (p_axes, p_axes, 4, center.x, center.y);
+	glVertexPointer (_2D, GL_FLOAT, 0, p_axes);
 	glDrawArrays (GL_LINES, 0, 4);
 	// Draw notches
-	glLineWidth (notchLineWidth);
-	GLfloat p_notch_curr[4] = {0};
-	glVertexPointer (_2D, GL_FLOAT, 0, p_notch_curr);
+	int notchCountHalfX = (int) ((axes[2] - axes[0]) / (2 * notchInterval));
+	int notchCountHalfY = (int) ((axes[7] - axes[5]) / (2 * notchInterval));
+	glLineWidth (notchLineThickness);
+	GLfloat notch_curr[4] = {0};
+	GLfloat scaled_notch[4] = {0};
+	glVertexPointer (_2D, GL_FLOAT, 0, notch_curr);
 	// X notches
-	for (int i = -notchCountHalf; i <= notchCountHalf; i++) {
-		moveVertexArray (V_notch, p_notch_curr, 2, i * notchInterval + center.x, center.y);
+	mulVertexArray (V_notch, scaled_notch, 2, notchSize * scale.x, notchSize * scale.y);
+	for (int i = -notchCountHalfX; i <= notchCountHalfX; i++) {
+		moveVertexArray (scaled_notch, notch_curr, 2, i * notchInterval * scale.x + center.x, center.y);
 		glDrawArrays (GL_LINES, 0, 2);
 	}
 	// Y notches
-	glVertexPointer (_2D, GL_FLOAT, 0, p_notch_curr);
-	for (int i = -notchCountHalf; i <= notchCountHalf; i++) {
-		moveVertexArray (H_notch, p_notch_curr, 2, center.x, i * notchInterval + center.y);
+	mulVertexArray (H_notch, scaled_notch, 2, notchSize * scale.x, notchSize * scale.y);
+	for (int i = -notchCountHalfY; i <= notchCountHalfY; i++) {
+		moveVertexArray (scaled_notch, notch_curr, 2, center.x, i * notchInterval * scale.y + center.y);
 		glDrawArrays (GL_LINES, 0, 2);
 	}
 }
 
 
 void Kurisu::Pane_obj::drawEdges () {
-	glLineWidth (edgesLineWidth);
-	glVertexPointer (_2D, GL_FLOAT, 0, &edges[0]);
-	glColor3fv (clLEdges);
-	glDrawArrays (GL_LINES, 0, edges.size () / 2);
+	glLineWidth (edgeLineThickness);
+	glColor3fv (clEdge);
+	GLfloat edge_curr[4] = {0};
+	glVertexPointer (_2D, GL_FLOAT, 0, edge_curr);
+	for (Edge edge : edges) {
+		edge_curr[0] = edge.first.x;
+		edge_curr[1] = edge.first.y;
+		edge_curr[2] = edge.second.x;
+		edge_curr[3] = edge.second.y;
+		mulVertexArray (edge_curr, edge_curr, 2, scale.x, scale.y);
+		moveVertexArray (edge_curr, edge_curr, 2, center.x, center.y);
+		glDrawArrays (GL_LINES, 0, 2);
+	}
 }
 
 
 void Kurisu::Pane_obj::drawVerticies () {
+	glColor3fv (clVertex);
 	GLfloat dot_curr[8] = {0};
 	glVertexPointer (_2D, GL_FLOAT, 0, dot_curr);
-	glColor3fv (clLVertex);
 	for (Vertex point : vertices) {
-		moveVertexArray (dot, dot_curr, 4, point.x, point.y);
+		mulVertexArray (dot, dot_curr, 4, dotSize * scale.x, dotSize * scale.y);
+		moveVertexArray (dot_curr, dot_curr, 4, point.x * scale.x + center.x, point.y * scale.y + center.y);
 		glDrawArrays (GL_POLYGON, 0, 4);
 	}
 }
 
 
 void Kurisu::Pane_obj::setGraph (const std::vector<Vertex> &vertices_in, const std::vector<Edge> &edges_in) {
-	// Transform vertices
 	vertices.clear ();
-	vertices.reserve (vertices_in.size ());
-	for (Vertex vertex : vertices_in) {
-		vertices.push_back ({vertex.x + center.x, vertex.y + center.y});
-	}
-
-	// Transform edges
+	vertices = vertices_in;
 	edges.clear ();
-	edges.reserve (edges_in.size () * 4);
-	for (Edge edge : edges_in) {
-		edges.push_back (edge.first.x + center.x);
-		edges.push_back (edge.first.y + center.y);
-		edges.push_back (edge.second.x + center.x);
-		edges.push_back (edge.second.y + center.y);
-	}
+	edges = edges_in;
 }
+
+
+void Kurisu::Pane_obj::setNotchSize (GLfloat size) { notchSize = size; }
+
+
+void Kurisu::Pane_obj::setNotchInterval (GLfloat interval) { notchInterval = interval; }
+
+
+void Kurisu::Pane_obj::setDotSize (GLfloat size) { dotSize = size; }
+
+
+void Kurisu::Pane_obj::setAxisLineThickness (GLfloat thickness) { axisLineThickness = thickness; }
+
+
+void Kurisu::Pane_obj::setEdgeLineThickness (GLfloat thickness) { edgeLineThickness = thickness; }
+
+
+void Kurisu::Pane_obj::setNotchLineThickness (GLfloat thickness) { notchLineThickness = thickness; }
+
+
+void Kurisu::Pane_obj::setAxesLines (const GLfloat lines[8]) { memcpy (axes, lines, 8 * sizeof (GLfloat)); }
